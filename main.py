@@ -289,13 +289,48 @@ class MakigumoBot(commands.AutoShardedBot):
 
     async def _web_server(self):
         app = web.Application()
-        app.router.add_get('/', lambda r: web.Response(text="Makigumo is alive!"))
+
+        async def root_handler(request):
+            return web.Response(
+                text="Makigumo Bot v4.1 is alive and watching you♡",
+                content_type="text/plain",
+                headers={"Access-Control-Allow-Origin": "*"}
+            )
+
+        async def stats_handler(request):
+            guild_count = len(self.guilds)
+            user_count = sum(g.member_count or 0 for g in self.guilds)
+            ping_ms = round(self.latency * 1000, 1) if self.latency else 0
+            
+            data = {
+                "status": "online",
+                "version": "v4.1",
+                "guilds": guild_count,
+                "users": user_count,
+                "ping": ping_ms,
+                "bot_name": self.user.name if self.user else "まきぐも",
+                "bot_id": str(self.user.id) if self.user else "1513527535168651314"
+            }
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        async def health_handler(request):
+            return web.json_response(
+                {"status": "ok", "latency_ms": round(self.latency * 1000, 1) if self.latency else 0},
+                headers={"Access-Control-Allow-Origin": "*"}
+            )
+
+        app.router.add_get('/', root_handler)
+        app.router.add_get('/api/stats', stats_handler)
+        app.router.add_get('/api/health', health_handler)
+        app.router.add_get('/health', health_handler)
+        app.router.add_get('/server_count.json', stats_handler)
+
         runner = web.AppRunner(app)
         await runner.setup()
         port = int(os.environ.get('PORT', 8080))
         site = web.TCPSite(runner, '0.0.0.0', port)
         await site.start()
-        print(f"Web server started on port {port} for UptimeRobot!")
+        print(f"Web server started on port {port} with API endpoints (/api/stats, /api/health)!")
 
     async def global_cmd_channel_check(self, interaction: discord.Interaction) -> bool:
         if not interaction.guild:
