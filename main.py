@@ -363,46 +363,95 @@ class MakigumoBot(commands.AutoShardedBot):
             )
 
         async def trial_handler(request):
+            cors_headers = {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type",
+            }
             if request.method == 'OPTIONS':
-                return web.Response(
-                    headers={
-                        "Access-Control-Allow-Origin": "*",
-                        "Access-Control-Allow-Methods": "POST, OPTIONS",
-                        "Access-Control-Allow-Headers": "Content-Type",
-                    }
-                )
+                return web.Response(headers=cors_headers)
             try:
                 data = await request.json()
+                action = str(data.get('action', 'chat')).strip()
+                raw_sid = str(data.get('session_id', '')).strip()
+                import re, uuid
+                clean_sid = re.sub(r'[^a-zA-Z0-9_-]', '', raw_sid)
+                if not clean_sid or len(clean_sid) < 4:
+                    clean_sid = f"web_{uuid.uuid4().hex[:12]}"
+                elif not clean_sid.startswith("web_"):
+                    clean_sid = f"web_{clean_sid}"
+
+                ai_cog = self.get_cog('AI')
+
+                if action == "reset":
+                    if ai_cog:
+                        ai_cog.histories.pop(clean_sid, None)
+                        ai_cog.history_timestamps.pop(clean_sid, None)
+                    return web.json_response(
+                        {
+                            "status": "ok",
+                            "action": "reset",
+                            "reply": "記憶をリセットしました……。ふん、また最初からやり直すつもりですか？",
+                            "session_id": clean_sid,
+                            "turn_count": 0
+                        },
+                        headers=cors_headers
+                    )
+
                 msg = str(data.get('message', '')).strip()
                 if not msg:
                     return web.json_response(
                         {"error": "メッセージが空です"},
                         status=400,
-                        headers={"Access-Control-Allow-Origin": "*"}
+                        headers=cors_headers
                     )
-                if len(msg) > 100:
-                    msg = msg[:100]
+                if len(msg) > 300:
+                    msg = msg[:300]
 
-                ai_cog = self.get_cog('AI')
+                raw_name = str(data.get('user_name', '')).strip()
+                user_name = re.sub(r'[\r\n\t]', '', raw_name)[:20] if raw_name else "変態さん"
+
                 if ai_cog:
-                    # Webお試し用セッション (web_guest)
-                    reply, err = await ai_cog._generate_ai_reply("web_trial_guest", "Web訪問者", msg)
+                    reply, err = await ai_cog._generate_ai_reply(clean_sid, user_name, msg)
                     if reply:
+                        turn_count = len(ai_cog.histories.get(clean_sid, [])) // 2
                         return web.json_response(
-                            {"reply": reply},
-                            headers={"Access-Control-Allow-Origin": "*"}
+                            {
+                                "status": "ok",
+                                "reply": reply,
+                                "session_id": clean_sid,
+                                "turn_count": turn_count
+                            },
+                            headers=cors_headers
                         )
-                
-                # フォールバックセリフ
+                    if err:
+                        return web.json_response(
+                            {
+                                "status": "error",
+                                "reply": err,
+                                "session_id": clean_sid
+                            },
+                            headers=cors_headers
+                        )
+
                 fallback = self.get_line("normal.txt")
                 return web.json_response(
-                    {"reply": fallback},
-                    headers={"Access-Control-Allow-Origin": "*"}
+                    {
+                        "status": "ok",
+                        "reply": fallback,
+                        "session_id": clean_sid,
+                        "turn_count": 1
+                    },
+                    headers=cors_headers
                 )
             except Exception as e:
                 return web.json_response(
-                    {"reply": f"「んぇ…？（ちょっとエラーが出ちゃいました: {e}）」"},
-                    headers={"Access-Control-Allow-Origin": "*"}
+                    {
+                        "status": "error",
+                        "reply": f"「んぇ…？（ちょっとエラーが出ちゃいました: {e}）」"
+                    },
+                    status=500,
+                    headers=cors_headers
                 )
 
         app.router.add_route('OPTIONS', '/api/trial', trial_handler)
