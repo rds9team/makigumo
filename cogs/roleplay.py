@@ -12,13 +12,13 @@ class HelpView(discord.ui.View):
     def get_embed(self, category):
         if category == "home":
             e = discord.Embed(title="☁️ まきぐもちゃん 総合ヘルプガイド", description="サーバー＆DMに常駐して、あなたたち「変態さん」を監視・癒やし・お仕置きするBotです♡", color=0xffb6c1)
-            e.add_field(name="🤖 まきぐもAI (ZETA機能)", value="`/ai [メッセージ]` : まきぐもAIとチャット（完全無制限！）\n`/user_settings [プロンプト]` : AIの性格・プロンプトを自分専用にカスタム\n📩 **DM送信** : Bot宛てに直接DMを送るだけでタイマンAIチャット可能！", inline=False)
+            e.add_field(name="🤖 まきぐもAI (ZETA機能)", value="`/ai [メッセージ]` : まきぐもAIとチャット（1日100回〜Pro Max1000回・現在無料開放中♡）\n`/user_settings [プロンプト]` : AIの性格・プロンプトを自分専用にカスタム\n📩 **DM送信** : Bot宛てに直接DMを送るだけでタイマンAIチャット可能！", inline=False)
             e.add_field(name="💬 チャット自動反応ワード (サーバー内)", value="`まきぐも` / `おはよ` / `おやすみ` / `かわいい` / `抜いた` / `まきぐそ`", inline=False)
-            e.add_field(name="💎 公式リンク・有料プラン", value="`/pro` : プラン案内 (💎Pro: 画像送信対応 / 👑Pro Max: 画像・動画・音声ファイル送信対応)\n`/plan` : 現在のプラン確認\n`/server` : 公式Discordサーバー", inline=False)
+            e.add_field(name="💎 公式リンク・有料プラン", value="`/pro` : プラン案内 (💎Pro: 画像送信対応 / 👑Pro Max: 動画・音声ファイル送信対応)\n`/plan` : 現在のプラン確認\n`/server` : 公式Discordサーバー ( https://discord.gg/AMKjxRYKGF )", inline=False)
             return e
         elif category == "rp":
             e = discord.Embed(title="💕 シチュエーション・お遊び", color=0xffb6c1)
-            e.add_field(name="AI・カスタム機能", value="`/ai` : AI会話（完全無制限！）\n`/ai_mode` : 性格モードワンタッチ変更\n`/reset_ai` : AI記憶リセット\n`/user_settings` : カスタムプロンプト設定\n`/profile` : 誕生日・所在地（AI自動補正）・メモの設定\n`/update` / `/version`", inline=False)
+            e.add_field(name="AI・カスタム機能", value="`/ai` : AI会話（無料:1日100回 / Pro:300回 / Pro Max:1000回）\n`/ai_mode` : 性格モードワンタッチ変更\n`/reset_ai` : AI記憶リセット\n`/user_settings` : カスタムプロンプト設定\n`/diary` : まきぐもの観察絵日記\n`/profile` : 誕生日・所在地・メモの設定\n`/update` / `/version`", inline=False)
             e.add_field(name="シチュエーション＆エンタメ", value="`/play` : 各種シチュエーション（お仕置き/罵倒/看病/嫉妬/喘ぐ/おねだり/添い寝/耳打ち）\n`/gacha` : まきぐもガチャ\n`/omikuji` : 変態おみくじ（1日1回）\n`/present` : まきぐもにお貢ぎ・プレゼント\n`/相性` / `/豆知識`", inline=False)
             return e
         elif category == "game":
@@ -200,7 +200,7 @@ class Roleplay(commands.Cog):
     @app_commands.command(name="server", description="まきぐもぼっと公式Discordサーバーの招待リンクを表示します")
     async def server(self, interaction: discord.Interaction):
         await interaction.response.defer()
-        await interaction.followup.send("☁️ **まきぐもぼっと 公式Discordサーバー**\nhttps://discord.gg/kxFCwCj2eX")
+        await interaction.followup.send("☁️ **まきぐもぼっと 公式Discordサーバー**\nhttps://discord.gg/AMKjxRYKGF")
 
     @app_commands.command(name="donate", description="まきぐもちゃん＆開発者（rds9）への寄付・支援方法をご案内します")
     async def donate(self, interaction: discord.Interaction):
@@ -271,7 +271,7 @@ class Roleplay(commands.Cog):
             await interaction.followup.send("🔗 **まきぐもBot 招待リンク**\n[ここをクリックして別のサーバーに招待する](https://discord.com/api/oauth2/authorize?client_id=1255554705573449830&permissions=8&scope=bot%20applications.commands)", ephemeral=True)
             
         elif 項目.value == "server":
-            await interaction.followup.send("🔗 **まきぐもぼっと 公式サポートサーバー**\n[ここをクリックして参加する](https://discord.gg/C67X8e34yJ)", ephemeral=True)
+            await interaction.followup.send("🔗 **まきぐもぼっと 公式サポートサーバー**\n[ここをクリックして参加する](https://discord.gg/AMKjxRYKGF)", ephemeral=True)
             
         elif 項目.value == "donate":
             msg = "**【まきぐも開発者へのご支援について】**\n\nまきぐもは個人開発で、サーバー代やAIのAPI利用料が毎月かかっています。\nもし「まきぐも可愛い！」「応援したい！」と思っていただけたら、以下の方法でご支援いただけると本当に助かります…！🙇‍♂️\n\n**◆ PayPay / Amazonギフト券**\n`/pro_pay` コマンドから申請することで、ご支援いただいた方に特典(Proプラン)を付与しています！\n\nその他、DiscordのDM (`rds9`) での直接の激励メッセージもお待ちしております！"

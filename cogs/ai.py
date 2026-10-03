@@ -321,7 +321,7 @@ class AI(commands.Cog):
             else:
                 return None, f"「…っ、頭が痛いです…（エラーが発生しました: {last_error}）」"
 
-    @app_commands.command(name="ai", description="まきぐもAIと自由にお話しできます♡（無料:1日100回/Pro:1日300回）")
+    @app_commands.command(name="ai", description="まきぐもAIと自由にお話しできます♡（無料:100回/Pro:300回/ProMax:1000回）")
     async def ai_chat(self, interaction: discord.Interaction, メッセージ: str):
         if not HAS_NEW_GENAI and not HAS_LEGACY_GENAI:
             return await interaction.response.send_message("「AI機能を使うには `google-genai` ライブラリが必要です！」", ephemeral=True)
