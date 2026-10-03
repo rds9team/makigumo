@@ -362,6 +362,51 @@ class MakigumoBot(commands.AutoShardedBot):
                 headers={"Access-Control-Allow-Origin": "*"}
             )
 
+        async def trial_handler(request):
+            if request.method == 'OPTIONS':
+                return web.Response(
+                    headers={
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Methods": "POST, OPTIONS",
+                        "Access-Control-Allow-Headers": "Content-Type",
+                    }
+                )
+            try:
+                data = await request.json()
+                msg = str(data.get('message', '')).strip()
+                if not msg:
+                    return web.json_response(
+                        {"error": "メッセージが空です"},
+                        status=400,
+                        headers={"Access-Control-Allow-Origin": "*"}
+                    )
+                if len(msg) > 100:
+                    msg = msg[:100]
+
+                ai_cog = self.get_cog('AI')
+                if ai_cog:
+                    # Webお試し用セッション (web_guest)
+                    reply, err = await ai_cog._generate_ai_reply("web_trial_guest", "Web訪問者", msg)
+                    if reply:
+                        return web.json_response(
+                            {"reply": reply},
+                            headers={"Access-Control-Allow-Origin": "*"}
+                        )
+                
+                # フォールバックセリフ
+                fallback = self.get_line("normal.txt")
+                return web.json_response(
+                    {"reply": fallback},
+                    headers={"Access-Control-Allow-Origin": "*"}
+                )
+            except Exception as e:
+                return web.json_response(
+                    {"reply": f"「んぇ…？（ちょっとエラーが出ちゃいました: {e}）」"},
+                    headers={"Access-Control-Allow-Origin": "*"}
+                )
+
+        app.router.add_route('OPTIONS', '/api/trial', trial_handler)
+        app.router.add_post('/api/trial', trial_handler)
         app.router.add_get('/', root_handler)
         app.router.add_get('/api/stats', stats_handler)
         app.router.add_get('/api/health', health_handler)
