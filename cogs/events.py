@@ -120,7 +120,7 @@ class Events(commands.Cog):
             except (OverflowError, ValueError):
                 latency_ms = 0
                 
-            stream_url = "https://rds9.pages.dev/"
+            stream_url = "https://rds9.net"
 
             chat_count, cmd_count = 0, 0
             import pg_shim as sqlite3
