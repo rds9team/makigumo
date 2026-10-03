@@ -20,6 +20,14 @@ class PaymentModal(discord.ui.Modal, title="✨ まきぐも Proプラン 支払
         self.bot = bot
 
     async def on_submit(self, interaction: discord.Interaction):
+        if hasattr(self.bot, 'is_campaign_active') and self.bot.is_campaign_active():
+            return await interaction.response.send_message(
+                "🎉 **【10/4〜10/11 期間限定】全機能無料開放キャンペーン中！**\n"
+                "現在、すべてのユーザー様に **Pro MAXと同等の全機能** を無料で開放しております♡\n"
+                "キャンペーン期間中は有料プランの課金受付を一時停止しておりますので、このまま無料で全機能をお楽しみください！\n"
+                "（※利用量に応じて全体に制限がかかる可能性があります。期間は予告なく変更される場合があります）",
+                ephemeral=True
+            )
         content = self.pay_content.value.strip()
         user_id = str(interaction.user.id)
         now_str = datetime.now(timezone(timedelta(hours=9))).isoformat()
@@ -110,6 +118,14 @@ class ProGuidanceView(discord.ui.View):
 
     @discord.ui.button(label="💳 支払いを申請する (PayPay / Amazon)", style=discord.ButtonStyle.primary, emoji="💎")
     async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if hasattr(self.bot, 'is_campaign_active') and self.bot.is_campaign_active():
+            return await interaction.response.send_message(
+                "🎉 **【10/4〜10/11 期間限定】全有料機能の無料開放キャンペーン中！**\n"
+                "現在、すべてのユーザー様に **Pro MAXと同等の全機能** を開放しております！\n"
+                "キャンペーン期間中は有料機能の課金受付を停止しておりますので、このまま無料で全機能をお楽しみください♡\n"
+                "（※利用量によっては全体に制限をかける可能性があります。期間は変更される可能性があります）",
+                ephemeral=True
+            )
         await interaction.response.send_modal(PaymentModal(self.bot))
 
     @discord.ui.button(label="❌ 案内を閉じる", style=discord.ButtonStyle.secondary)
@@ -275,9 +291,21 @@ class Billing(commands.Cog):
 
     @app_commands.command(name="pro", description="まきぐも Pro & Pro Maxプランの案内と申し込み画面をDMで開きます")
     async def pro_cmd(self, interaction: discord.Interaction):
+        is_campaign = hasattr(self.bot, 'is_campaign_active') and self.bot.is_campaign_active()
+        campaign_notice = ""
+        if is_campaign:
+            campaign_notice = (
+                "🎉 **【重要】10/4〜10/11 全有料機能無料開放キャンペーン開催中！**\n"
+                "現在、すべてのユーザー様に **Pro MAXと同等の全機能** を無料で開放しております♡\n"
+                "※そのため現在有料機能の課金受付を一時停止しております。このまま無料でPro MAXをお楽しみください！\n"
+                "（※利用量によっては全体に制限をかける可能性があります。期間は変更される可能性があります）\n\n"
+                "----------------------------------------\n\n"
+            )
+
         embed = discord.Embed(
             title="💎 まきぐも 有料プランのご案内 (Pro & Pro Max)",
             description=(
+                f"{campaign_notice}"
                 "「……私ともっと濃厚にお話ししたいんですか？♡\n"
                 "プランに加入すると、制限が大幅に解除されて特別な機能がたくさん解放されますよ！」\n\n"
                 "### 💰 料金プラン\n"
@@ -340,6 +368,14 @@ class Billing(commands.Cog):
     @app_commands.describe(content="PayPay送金リンク(https://...) または Amazonギフトコード")
     async def pro_pay_cmd(self, interaction: discord.Interaction, content: str):
         await interaction.response.defer(ephemeral=True)
+        if hasattr(self.bot, 'is_campaign_active') and self.bot.is_campaign_active():
+            return await interaction.followup.send(
+                "🎉 **【10/4〜10/11 期間限定】全機能無料開放キャンペーン中！**\n"
+                "現在、すべてのユーザー様に **Pro MAXと同等の全機能** を無料で開放しております！\n"
+                "キャンペーン期間中は有料機能の課金受付を停止しておりますので、このまま無料で全機能をお楽しみください♡\n"
+                "（※利用量によっては全体に制限をかける可能性があります。期間は変更される可能性があります）",
+                ephemeral=True
+            )
         content = content.strip()
         user_id = str(interaction.user.id)
         now_str = datetime.now(timezone(timedelta(hours=9))).isoformat()
@@ -396,11 +432,18 @@ class Billing(commands.Cog):
                 if exp:
                     expires_str = exp[:10]
 
+        is_campaign = hasattr(self.bot, 'is_campaign_active') and self.bot.is_campaign_active()
+
         if is_owner:
             plan_type_str = "👑 開発者・完全無制限オーナー"
             expires_str = "無期限 (永続)"
             max_daily = 99999
             color = 0xFF4500
+        elif is_campaign:
+            plan_type_str = "🎉 期間限定: 全員Pro MAX無料開放中！"
+            expires_str = "2026-10-11まで (無料開放)"
+            max_daily = 1000
+            color = 0xE5E4E2
         elif user_plan == 'promax_lifetime':
             plan_type_str = "👑 買い切りPro Max (永続・最上級貴族)"
             expires_str = "無期限 (永続)"
@@ -439,7 +482,9 @@ class Billing(commands.Cog):
             value=f"**{used_str}** (残り: **{remain_str}**)",
             inline=False
         )
-        if user_plan == 'free':
+        if is_campaign:
+            embed.set_footer(text="🎉 10/4~10/11は全機能無料開放期間中！Pro MAXのすべての機能をお楽しみいただけます♡")
+        elif user_plan == 'free':
             embed.set_footer(text="💡 `/pro` でPro / Pro Maxプランの特典や詳細を確認できます♡")
         else:
             embed.set_footer(text="✨ いつもまきぐもを応援してくれてありがとうございます♡")

@@ -4,6 +4,7 @@ import json
 import pg_shim as sqlite3
 import os
 import contextlib
+import time
 from aiohttp import web
 import random
 from dotenv import load_dotenv
@@ -11,16 +12,6 @@ from dotenv import load_dotenv
 # .envファイルから環境変数を読み込む
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
-
-# Cloudflare Workers などのプロキシ設定
-DISCORD_API_PROXY = os.getenv('DISCORD_API_PROXY')
-if DISCORD_API_PROXY:
-    proxy_base = DISCORD_API_PROXY.rstrip('/')
-    if not proxy_base.endswith('/api/v10') and not proxy_base.endswith('/api/v9'):
-        proxy_base += '/api/v10'
-    discord.http.Route.BASE = proxy_base
-    print(f"🌐 Discord API Proxy 有効化: {discord.http.Route.BASE}")
-
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -34,6 +25,7 @@ LINES_DIR = "lines"
 class MakigumoBot(commands.AutoShardedBot):
     def __init__(self):
         super().__init__(command_prefix="!", intents=intents, chunk_guilds_at_startup=False)
+        self.start_time = time.time()
         self.cmd_channel_settings = {}
         self.channel_settings = {}
         self.economy = {}
@@ -49,6 +41,10 @@ class MakigumoBot(commands.AutoShardedBot):
         with contextlib.closing(sqlite3.connect("database.db", timeout=30.0)) as conn, conn:
             c = conn.cursor()
             c.execute("PRAGMA journal_mode=WAL")
+            c.execute("PRAGMA synchronous=NORMAL")
+            c.execute("PRAGMA cache_size=-64000")
+            c.execute("PRAGMA temp_store=MEMORY")
+            c.execute("PRAGMA mmap_size=268435456")
             c.execute("CREATE TABLE IF NOT EXISTS economy (user_id TEXT PRIMARY KEY, data TEXT)")
             c.execute("CREATE TABLE IF NOT EXISTS channel_settings (guild_id TEXT PRIMARY KEY, channels TEXT)")
             c.execute("CREATE TABLE IF NOT EXISTS command_channel_settings (guild_id TEXT PRIMARY KEY, allowed_channels TEXT, allowed_categories TEXT)")
@@ -233,6 +229,18 @@ class MakigumoBot(commands.AutoShardedBot):
                 return True
         return False
 
+    def is_campaign_active(self) -> bool:
+        """10/4~10/11の全有料機能無料開放キャンペーン判定 (環境変数で延長・短縮可能)"""
+        force_flag = os.getenv('CAMPAIGN_FREE_PROMAX')
+        if force_flag is not None:
+            return force_flag.lower() in ('true', '1', 'yes')
+        from datetime import datetime, timezone, timedelta
+        jst = timezone(timedelta(hours=9))
+        now = datetime.now(jst)
+        start_date = datetime(2026, 10, 4, 0, 0, 0, tzinfo=jst)
+        end_date = datetime(2026, 10, 11, 23, 59, 59, tzinfo=jst)
+        return start_date <= now <= end_date
+
     def get_user_plan(self, user_id) -> str:
         """ユーザーの有効プランを返す: 'owner' | 'promax_lifetime' | 'promax_monthly' | 'pro_lifetime' | 'pro_monthly' | 'free'"""
         uid = str(user_id)
@@ -264,10 +272,18 @@ class MakigumoBot(commands.AutoShardedBot):
         return 'free'
 
     def is_promax(self, user_id) -> bool:
+        if self.is_owner(user_id):
+            return True
+        if self.is_campaign_active():
+            return True
         plan = self.get_user_plan(user_id)
         return plan in ('owner', 'promax_lifetime', 'promax_monthly')
 
     def is_pro(self, user_id) -> bool:
+        if self.is_owner(user_id):
+            return True
+        if self.is_campaign_active():
+            return True
         plan = self.get_user_plan(user_id)
         return plan in ('owner', 'promax_lifetime', 'promax_monthly', 'pro_lifetime', 'pro_monthly')
 
@@ -302,20 +318,47 @@ class MakigumoBot(commands.AutoShardedBot):
             user_count = sum(g.member_count or 0 for g in self.guilds)
             ping_ms = round(self.latency * 1000, 1) if self.latency else 0
             
+            chat_count, cmd_count = 0, 0
+            try:
+                with contextlib.closing(sqlite3.connect("database.db", timeout=10.0)) as conn, conn:
+                    c = conn.cursor()
+                    r1 = c.execute("SELECT val FROM bot_stats WHERE key = 'chat_count'").fetchone()
+                    if r1: chat_count = r1[0]
+                    r2 = c.execute("SELECT val FROM bot_stats WHERE key = 'cmd_count'").fetchone()
+                    if r2: cmd_count = r2[0]
+            except Exception:
+                pass
+
+            uptime_sec = round(time.time() - getattr(self, 'start_time', time.time()))
+
             data = {
                 "status": "online",
                 "version": "v4.1",
                 "guilds": guild_count,
                 "users": user_count,
                 "ping": ping_ms,
+                "chat_count": chat_count,
+                "cmd_count": cmd_count,
+                "uptime_seconds": uptime_sec,
+                "campaign_active": self.is_campaign_active(),
                 "bot_name": self.user.name if self.user else "まきぐも",
                 "bot_id": str(self.user.id) if self.user else "1513527535168651314"
             }
             return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
 
         async def health_handler(request):
+            guild_count = len(self.guilds)
+            user_count = sum(g.member_count or 0 for g in self.guilds)
+            uptime_sec = round(time.time() - getattr(self, 'start_time', time.time()))
             return web.json_response(
-                {"status": "ok", "latency_ms": round(self.latency * 1000, 1) if self.latency else 0},
+                {
+                    "status": "ok",
+                    "latency_ms": round(self.latency * 1000, 1) if self.latency else 0,
+                    "guilds": guild_count,
+                    "users": user_count,
+                    "uptime_seconds": uptime_sec,
+                    "campaign_active": self.is_campaign_active()
+                },
                 headers={"Access-Control-Allow-Origin": "*"}
             )
 
@@ -375,7 +418,7 @@ class MakigumoBot(commands.AutoShardedBot):
         return False
 
     async def setup_hook(self):
-        self.tree.interaction_check(self.global_cmd_channel_check)
+        self.tree.interaction_check = self.global_cmd_channel_check
         self.loop.create_task(self._web_server())
         # cogsフォルダ内の各ファイルを読み込む
         for cog in ['cogs.events', 'cogs.economy', 'cogs.roleplay', 'cogs.ai', 'cogs.leveling', 'cogs.billing', 'cogs.report', 'cogs.live_call', 'cogs.profile', 'cogs.notifications']:

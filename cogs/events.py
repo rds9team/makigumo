@@ -143,7 +143,7 @@ class Events(commands.Cog):
             elif self.status_index == 3:
                 status_text = f"ping: {latency_ms}ms"
             else:
-                status_text = "Powered by rds9"
+                status_text = "Powered by rds9team"
 
             activity = discord.Streaming(name=status_text, url=stream_url)
             self.status_index = (self.status_index + 1) % 5
