@@ -458,6 +458,7 @@ class MakigumoBot(commands.AutoShardedBot):
         app.router.add_post('/api/trial', trial_handler)
         app.router.add_get('/', root_handler)
         app.router.add_get('/api/stats', stats_handler)
+        app.router.add_get('/stats', stats_handler)
         app.router.add_get('/api/health', health_handler)
         app.router.add_get('/health', health_handler)
         app.router.add_get('/server_count.json', stats_handler)
