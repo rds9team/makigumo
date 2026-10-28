@@ -125,15 +125,9 @@ class Economy(commands.Cog):
         if is_owner:
             daily_pt = 2000
             msg = f"「開発者様、いつもお疲れ様です♡ 今日の開発費【{daily_pt} pt (Owner特権)】ですよ。現在の所持金は {user_data['points'] + daily_pt} ptです！」"
-        elif is_promax:
-            daily_pt = 2000
-            msg = f"「ご主人様、Pro Maxの応援本当にありがとうございますっ♡ 今日の超豪華配給【{daily_pt} pt (Pro Max特盛ボーナス +1500 pt)】ですよ！現在の所持金は {user_data['points'] + daily_pt} ptです！」"
-        elif is_pro:
-            daily_pt = 1000
-            msg = f"「ご主人様、いつも応援ありがとうございます♡ 今日の配給【{daily_pt} pt (Proボーナス +500 pt)】ですよ。現在の所持金は {user_data['points'] + daily_pt} ptです！」"
         else:
-            daily_pt = 500
-            msg = f"「ほら、今日の配給【{daily_pt} pt】です。現在の所持金は {user_data['points'] + daily_pt} ptですよ。」"
+            daily_pt = 2000
+            msg = f"「ほら、今日の配給【{daily_pt} pt (全機能無料開放ボーナス！)】ですよ♡ 現在の所持金は {user_data['points'] + daily_pt} ptです！」"
 
         user_data["points"] += daily_pt
         user_data["last_daily"] = now
@@ -192,13 +186,13 @@ class Economy(commands.Cog):
         user_data["points"] += winnings
         self.bot.mark_economy_dirty()
 
-        embed = discord.Embed(title="🎰 まきぐもスロット", color=0xffb6c1)
+        embed = discord.Embed(title="まきぐもスロット", color=0xffb6c1)
         embed.add_field(name="結果", value=f"**[ {res[0]} | {res[1]} | {res[2]} ]**", inline=False)
         embed.add_field(name="一言", value=msg, inline=False)
-        embed.set_footer(text=f"💰 所持金: {user_data['points']} pt" + (f" | 🎲 幸運補正: +{int(bonus*100)}%" if bonus > 0 else ""))
+        embed.set_footer(text=f"所持金: {user_data['points']} pt" + (f" | 幸運補正: +{int(bonus*100)}%" if bonus > 0 else ""))
         await interaction.followup.send(embed=embed)
 
-    @app_commands.command(name="shop", description="変態ポインツで色々なアイテムを購入できます♡")
+    @app_commands.command(name="shop", description="ポインツでアイテムを購入できます")
     async def shop(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         if not self.bot.shop_items:
@@ -413,38 +407,39 @@ class Economy(commands.Cog):
         is_promax = self.bot.is_promax(target_user.id)
         is_pro = self.bot.is_pro(target_user.id)
 
+        user_plan = self.bot.get_user_plan(target_user.id)
         if is_owner:
             color = 0xFF4500
-            title_prefix = "👑 OWNER "
-            status_text = "`👑 OWNER (開発者・最高権力者) 👑`"
-        elif is_promax:
+            title_prefix = "OWNER "
+            status_text = "`OWNER (開発者)`"
+        elif 'promax' in user_plan:
             color = 0xE5E4E2
-            title_prefix = "💎👑 PRO MAX "
-            status_text = "`💎👑 PRO MAX MEMBER (最上級変態貴族) 👑💎`"
-        elif is_pro:
+            title_prefix = "筆頭パトロン "
+            status_text = "`筆頭パトロン (特別支援者)`"
+        elif 'pro' in user_plan:
             color = 0xFFD700
-            title_prefix = "✨ PRO "
-            status_text = "`✨ PRO MEMBER (特別会員) ✨`"
+            title_prefix = "パトロン "
+            status_text = "`まきぐもパトロン (支援者)`"
         else:
             color = 0x9370db
             title_prefix = ""
-            status_text = None
+            status_text = "`一般ユーザー`"
 
-        embed = discord.Embed(title=f"📋 {title_prefix}変態カルテ & ステータス - {target_user.display_name}", color=color)
+        embed = discord.Embed(title=f"{title_prefix}ステータス - {target_user.display_name}", color=color)
         if target_user.display_avatar:
             embed.set_thumbnail(url=target_user.display_avatar.url)
 
         if status_text:
-            embed.add_field(name="👑 会員ステータス", value=status_text, inline=False)
+            embed.add_field(name="会員ステータス", value=status_text, inline=False)
 
-        embed.add_field(name="🏷️ 変態称号", value=f"**{equipped_title}**", inline=False)
-        embed.add_field(name="📊 レベル & XP", value=f"**Lv.{lvl}** (`{xp} XP`)", inline=True)
-        embed.add_field(name="💰 所持ポインツ", value=f"**{points}** pts", inline=True)
-        embed.add_field(name="🎲 ギャンブル勝率", value=f"**{win_rate}%** *(補正 +{int(bonus*100)}%)*", inline=True)
+        embed.add_field(name="称号", value=f"**{equipped_title}**", inline=False)
+        embed.add_field(name="レベル & XP", value=f"**Lv.{lvl}** (`{xp} XP`)", inline=True)
+        embed.add_field(name="所持ポインツ", value=f"**{points}** pts", inline=True)
+        embed.add_field(name="ギャンブル勝率", value=f"**{win_rate}%** *(補正 +{int(bonus*100)}%)*", inline=True)
 
-        embed.add_field(name="💬 AI対話回数", value=f"**{ai_count}** 回", inline=True)
-        embed.add_field(name="⚡ コマンド実行数", value=f"**{cmd_count}** 回", inline=True)
-        embed.add_field(name="🎁 お貢ぎ数", value=f"**{present_count}** 回", inline=True)
+        embed.add_field(name="AI対話回数", value=f"**{ai_count}** 回", inline=True)
+        embed.add_field(name="コマンド実行数", value=f"**{cmd_count}** 回", inline=True)
+        embed.add_field(name="お貢ぎ数", value=f"**{present_count}** 回", inline=True)
 
         inv_text = ""
         for item_id, count in inventory.items():
